@@ -1,7 +1,5 @@
 
 import type { QuizData, QuizDetails, QuestionItem } from '@/lib/types';
-import fs from 'fs/promises';
-import path from 'path';
 
 export async function fetchAndParseCSV(filePath: string = '/quiz-data.csv'): Promise<QuizData | null> {
   let csvText: string;
@@ -9,6 +7,9 @@ export async function fetchAndParseCSV(filePath: string = '/quiz-data.csv'): Pro
   try {
     if (typeof window === 'undefined') {
       // Server-side: read from the filesystem
+      const fs = await import('fs/promises');
+      const path = await import('path');
+
       const fileName = filePath.startsWith('/') ? filePath.substring(1) : filePath;
       const absolutePath = path.join(process.cwd(), 'public', fileName);
       

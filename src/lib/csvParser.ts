@@ -9,7 +9,6 @@ export async function fetchAndParseCSV(filePath: string = '/quiz-data.csv'): Pro
   try {
     if (typeof window === 'undefined') {
       // Server-side: read from the filesystem
-      // filePath is expected to be like '/quiz-data.csv', so remove leading '/' for path.join
       const fileName = filePath.startsWith('/') ? filePath.substring(1) : filePath;
       const absolutePath = path.join(process.cwd(), 'public', fileName);
       
@@ -21,7 +20,7 @@ export async function fetchAndParseCSV(filePath: string = '/quiz-data.csv'): Pro
         } else {
           console.error(`Server-side: Error reading CSV file '${fileName}' at ${absolutePath}:`, fsError);
         }
-        return null; // Return null for any fs read error
+        return null;
       }
     } else {
       // Client-side: fetch over HTTP
@@ -32,20 +31,18 @@ export async function fetchAndParseCSV(filePath: string = '/quiz-data.csv'): Pro
           return null;
         }
         console.error(`Client-side: Failed to fetch CSV '${filePath}': ${response.status} ${response.statusText}`);
-        return null; // Return null for fetch errors too
+        return null;
       }
       csvText = await response.text();
     }
 
-    // Common parsing logic starts here
     const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== '');
 
     if (lines.length < 2) {
-      console.warn(`CSV file '${filePath}' is empty or has only a header row after parsing. At least one data row is required.`);
+      console.warn(`CSV file '${filePath}' is empty or has only a header row. At least one data row is required.`);
       return null;
     }
 
-    // Parse details from the first row
     const detailValues = lines[0].split(',').map(s => s.trim());
     if (detailValues.length < 7) {
       console.warn(`CSV file '${filePath}' has an invalid details row (requires at least 7 columns). Header: "${lines[0]}"`);
@@ -61,35 +58,34 @@ export async function fetchAndParseCSV(filePath: string = '/quiz-data.csv'): Pro
       level: detailValues[6],
     };
 
-    // Parse questions from subsequent rows
     const questions: QuestionItem[] = lines.slice(1).map((line, index) => {
       const values = line.split(',').map(s => s.trim());
       if (values.length < 7) {
         console.warn(`Skipping invalid question row ${index + 2} in '${filePath}' (requires at least 7 columns): "${line}"`);
-        return null; // Skip malformed rows
+        return null; 
       }
       return {
         id: index + 1,
         question: values[0],
-        choices: [values[1], values[2], values[3], values[4]].filter(Boolean),
+        // Ensure choices array always has 4 elements, potentially empty strings
+        choices: [values[1] || "", values[2] || "", values[3] || "", values[4] || ""],
         correctAnswer: values[5],
         explanation: values[6],
       };
     }).filter(q => q !== null) as QuestionItem[];
 
     if (questions.length === 0) {
-      console.warn(`No valid questions found in CSV '${filePath}' after parsing all question rows.`);
+      console.warn(`No valid questions found in CSV '${filePath}'.`);
       return null;
     }
     
     if (details.numQuestions !== questions.length) {
-        console.warn(`Mismatch in number of questions for '${filePath}'. Header specified ${details.numQuestions}, but ${questions.length} questions were actually parsed. Using actual parsed count.`);
+        console.warn(`Mismatch in number of questions for '${filePath}'. Header: ${details.numQuestions}, Parsed: ${questions.length}. Using parsed count.`);
         details.numQuestions = questions.length;
     }
 
     return { details, questions };
   } catch (error) {
-    // This catches errors from .split, .map, parseInt, etc., or if fetch/readFile threw an unexpected error not handled above
     console.error(`Unexpected error while processing CSV file '${filePath}':`, error);
     return null;
   }
